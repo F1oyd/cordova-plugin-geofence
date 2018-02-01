@@ -1,9 +1,9 @@
 {
-  "name": "cordova-plugin-geofence",
-  "version": "0.6.0",
+  "name": "floydspace-cordova-plugin-geofence",
+  "version": "0.6.4",
   "description": "Cordova geofence plugin",
   "cordova": {
-    "id": "cordova-plugin-geofence",
+    "id": "floydspace-cordova-plugin-geofence",
     "platforms": [
       "android",
       "ios",
