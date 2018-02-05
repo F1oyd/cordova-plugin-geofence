@@ -56,7 +56,7 @@ let defaults = UserDefaults.standard
         if iOS8 {
             promptForNotificationPermission()
         }
-
+        
         geoNotificationManager = GeoNotificationManager.sharedInstance
         geoNotificationManager.registerPermissions()
         
@@ -97,17 +97,17 @@ let defaults = UserDefaults.standard
             if let arg = command.arguments?.first {
                 let data = JSON(arg)
                 log("\(data)")
-                if let uid = data["authToken"].string {
-                    defaults.set(uid, forKey: "authToken")
+                if let authToken = data["authToken"].string {
+                    defaults.set(authToken, forKey: "authToken")
                 }
                 if let geoTransitionURL = data["geoTransitionURL"].string {
                     defaults.set(geoTransitionURL, forKey: "geoTransitionURL")
                 }
-                if let locationUpdateURL = data["locationUpdateURL"].string {
-                    defaults.set(locationUpdateURL, forKey: "locationUpdateURL")
+                if let geoTransitionMethod = data["geoTransitionMethod"].string {
+                    defaults.set(geoTransitionMethod, forKey: "geoTransitionMethod")
                 }
             }
-
+            
             DispatchQueue.main.async {
                 let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
                 self.commandDelegate!.send(pluginResult, callbackId: command.callbackId)
@@ -393,48 +393,24 @@ class GeofenceFaker {
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         log("update location")
-        guard let urlString = defaults.string(forKey: "locationUpdateURL"), let authToken = defaults.string(forKey: "authToken") else {
-            return
-        }
-
-        if let url = URL(string: urlString) {
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue(authToken, forHTTPHeaderField: "Authorization")
-            if let lastLocation = locations.last {
-                let timestampString = dateJSONFormatter.string(from: lastLocation.timestamp)
-                let json: [String: Any] = ["location": ["latitude": lastLocation.coordinate.latitude, "longitude": lastLocation.coordinate.longitude],
-                                           "speed": lastLocation.speed,
-                                           "direction": lastLocation.course,
-                                           "altitude": lastLocation.altitude,
-                                           "horizontal_accuracy": lastLocation.horizontalAccuracy,
-                                           "vertical_accuracy": lastLocation.verticalAccuracy,
-                                           "timestamp": timestampString]
-                
-                request.httpBody = try! JSONSerialization.data(withJSONObject: json)
-                
-                let task = URLSession.shared.dataTask(with: request, completionHandler: { (data, response, error) -> Void in
-                    guard error == nil else {
-                        print("Error: ", error!)
-                        return
+        let transitionType = defaults.integer(forKey: "transitionType")
+//        if transitionType == 1 {
+            sendTransitionToServer(transitionType)
+            if let geoNotifications = store.getAll() {
+                if geoNotifications.count > 0 {
+                    var geoNotification = geoNotifications[0]
+                    geoNotification["transitionType"].int = transitionType
+                    
+                    if geoNotification["notification"].isExists() {
+                        if let sendNotification = geoNotification["sendNotification"].bool, sendNotification {
+                            notifyAbout(geoNotification)
+                        }
                     }
                     
-//                    if let data = data {
-//                        DispatchQueue.global().async {
-//                            self.removeAllGeoNotifications()
-//                            let geoFencesJson = JSON(data: data)
-//                            log("JSON: \(geoFencesJson)")
-//                            for geoFenceJson in geoFencesJson {
-//                                log("\(geoFenceJson.1)")
-//                                self.addOrUpdateGeoNotification(geoFenceJson.1)
-//                            }
-//                        }
-//                    }
-                })
-                task.resume()
+                    NotificationCenter.default.post(name: NSNotification.Name(rawValue: "handleTransition"), object: geoNotification.rawString(String.Encoding.utf8.rawValue, options: []))
+                }
             }
-        }
+//        }
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
@@ -447,12 +423,14 @@ class GeofenceFaker {
     
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         log("Entering region \(region.identifier)")
-        handleTransition(region, transitionType: 1)
+        defaults.set(1, forKey: "transitionType")
+        handleTransition(region)
     }
     
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
         log("Exiting region \(region.identifier)")
-        handleTransition(region, transitionType: 2)
+        defaults.set(2, forKey: "transitionType")
+        handleTransition(region)
     }
     
     func locationManager(_ manager: CLLocationManager, didStartMonitoringFor region: CLRegion) {
@@ -473,18 +451,18 @@ class GeofenceFaker {
         log("Monitoring region " + region!.identifier + " failed " + error.localizedDescription)
     }
     
-    func handleTransition(_ region: CLRegion!, transitionType: Int) {
+    func handleTransition(_ region: CLRegion!) {
+        let transitionType = defaults.integer(forKey: "transitionType")
+        sendTransitionToServer(transitionType)
         if var geoNotification = store.findById(region.identifier) {
             geoNotification["transitionType"].int = transitionType
-            
-            sendTransitionToServer(transitionType)
-            if geoNotification["notification"].exists() {
+            if geoNotification["notification"].isExists() {
                 if let sendNotification = geoNotification["sendNotification"].bool, sendNotification {
                     notifyAbout(geoNotification)
                 }
             }
-        
-            NotificationCenter.default.post(name: NSNotification.Name(rawValue: "handleTransition"), object: geoNotification.rawString(String.Encoding.utf8, options: []))
+            
+            NotificationCenter.default.post(name: NSNotification.Name(rawValue: "handleTransition"), object: geoNotification.rawString(String.Encoding.utf8.rawValue, options: []))
         }
     }
     
@@ -493,6 +471,7 @@ class GeofenceFaker {
         guard let urlString = defaults.string(forKey: "geoTransitionURL") else {
             return
         }
+        let geoTransitionMethod = defaults.string(forKey: "geoTransitionMethod")
         let authToken = defaults.string(forKey: "authToken")
         
         let url = URL(string: urlString)!
@@ -500,7 +479,7 @@ class GeofenceFaker {
         var request = URLRequest(url: url)
         
         do {
-            request.httpMethod = "POST"
+            request.httpMethod = geoTransitionMethod ?? "POST"
             
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             if authToken != nil {
@@ -529,7 +508,7 @@ class GeofenceFaker {
         notification.soundName = UILocalNotificationDefaultSoundName
         notification.alertBody = geo["notification"]["text"].stringValue
         if let json = geo["notification"]["data"] as JSON? {
-            notification.userInfo = ["geofence.notification.data": json.rawString(String.Encoding.utf8, options: [])!]
+            notification.userInfo = ["geofence.notification.data": json.rawString(String.Encoding.utf8.rawValue, options: [])!]
         }
         UIApplication.shared.scheduleLocalNotification(notification)
         
@@ -646,3 +625,4 @@ class GeoNotificationStore {
         }
     }
 }
+
