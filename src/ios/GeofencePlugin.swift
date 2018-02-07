@@ -9,6 +9,7 @@
 import Foundation
 import AudioToolbox
 import WebKit
+import UserNotifications
 
 let TAG = "GeofencePlugin"
 let iOS8 = floor(NSFoundationVersionNumber) > floor(NSFoundationVersionNumber_iOS_7_1)
@@ -53,9 +54,7 @@ let defaults = UserDefaults.standard
         //let faker = GeofenceFaker(manager: geoNotificationManager)
         //faker.start()
         
-        if iOS8 {
-            promptForNotificationPermission()
-        }
+        promptForNotificationPermission()
         
         geoNotificationManager = GeoNotificationManager.sharedInstance
         geoNotificationManager.registerPermissions()
@@ -273,13 +272,11 @@ class GeofenceFaker {
     }
     
     func registerPermissions() {
-        if iOS8 {
-            locationManager.stopUpdatingLocation()
-            locationManager.stopMonitoringSignificantLocationChanges()
-            
-            locationManager.requestAlwaysAuthorization()
-            locationManager.startMonitoringSignificantLocationChanges()
-        }
+        locationManager.stopUpdatingLocation()
+        locationManager.stopMonitoringSignificantLocationChanges()
+        
+        locationManager.requestAlwaysAuthorization()
+        locationManager.startMonitoringSignificantLocationChanges()
     }
     
     func addOrUpdateGeoNotification(_ geoNotification: JSON) {
@@ -330,8 +327,15 @@ class GeofenceFaker {
             errors.append("Warning: Location always permissions not granted")
         }
         if #available(iOS 11.0, *) {
-            
-        } else if (iOS8) {
+            UNUserNotificationCenter.current().getNotificationSettings { (settings) in
+                if settings.authorizationStatus == .authorized {
+                    // Notifications are allowed
+                }
+                else {
+                    errors.append("Error: notification permission missing")
+                }
+            }
+        } else {
             if let notificationSettings = UIApplication.shared.currentUserNotificationSettings {
                 if notificationSettings.types == UIUserNotificationType() {
                     errors.append("Error: notification permission missing")
@@ -393,24 +397,27 @@ class GeofenceFaker {
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         log("update location")
-        let transitionType = defaults.integer(forKey: "transitionType")
-//        if transitionType == 1 {
-            sendTransitionToServer(transitionType)
-            if let geoNotifications = store.getAll() {
-                if geoNotifications.count > 0 {
-                    var geoNotification = geoNotifications[0]
-                    geoNotification["transitionType"].int = transitionType
-                    
-                    if geoNotification["notification"].isExists() {
-                        if let sendNotification = geoNotification["sendNotification"].bool, sendNotification {
-                            notifyAbout(geoNotification)
-                        }
+        guard let lastLocation = locations.last else {
+            return
+        }
+        if let geoNotifications = store.getAll() {
+            if geoNotifications.count > 0 {
+                guard var geoNotification = geoNotifications.first(where:  { n in n["id"].string != nil }) else { return }
+                let id = geoNotification["id"].string
+                let region = manager.monitoredRegions.first(where:  { region in region.identifier == id }) as! CLCircularRegion
+                let transitionType = region.contains(lastLocation.coordinate) ? 1 : 2;
+                
+                sendTransitionToServer(transitionType)
+                geoNotification["transitionType"].int = transitionType
+                if geoNotification["notification"].isExists() {
+                    if let sendNotification = geoNotification["sendNotification"].bool, sendNotification {
+                        notifyAbout(geoNotification)
                     }
-                    
-                    NotificationCenter.default.post(name: NSNotification.Name(rawValue: "handleTransition"), object: geoNotification.rawString(String.Encoding.utf8.rawValue, options: []))
                 }
+                
+                NotificationCenter.default.post(name: NSNotification.Name(rawValue: "handleTransition"), object: geoNotification.rawString(String.Encoding.utf8.rawValue, options: []))
             }
-//        }
+        }
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
@@ -506,7 +513,7 @@ class GeofenceFaker {
         let dateTime = Date()
         notification.fireDate = dateTime
         notification.soundName = UILocalNotificationDefaultSoundName
-        notification.alertBody = geo["notification"]["text"].stringValue
+        notification.alertBody = geo["transitionType"].stringValue
         if let json = geo["notification"]["data"] as JSON? {
             notification.userInfo = ["geofence.notification.data": json.rawString(String.Encoding.utf8.rawValue, options: [])!]
         }
