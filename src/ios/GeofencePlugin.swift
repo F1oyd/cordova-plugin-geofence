@@ -409,6 +409,7 @@ class GeofenceFaker {
                 
                 sendTransitionToServer(transitionType)
                 geoNotification["transitionType"].int = transitionType
+                geoNotification["notification"]["text"].string = transitionType == 1 ? "You are home" : "You are not home"
                 if geoNotification["notification"].isExists() {
                     if let sendNotification = geoNotification["sendNotification"].bool, sendNotification {
                         notifyAbout(geoNotification)
@@ -463,6 +464,7 @@ class GeofenceFaker {
         sendTransitionToServer(transitionType)
         if var geoNotification = store.findById(region.identifier) {
             geoNotification["transitionType"].int = transitionType
+            geoNotification["notification"]["text"].string = transitionType == 1 ? "You have come home" : "You have left home"
             if geoNotification["notification"].isExists() {
                 if let sendNotification = geoNotification["sendNotification"].bool, sendNotification {
                     notifyAbout(geoNotification)
@@ -513,7 +515,7 @@ class GeofenceFaker {
         let dateTime = Date()
         notification.fireDate = dateTime
         notification.soundName = UILocalNotificationDefaultSoundName
-        notification.alertBody = geo["transitionType"].stringValue
+        notification.alertBody = geo["notification"]["text"].stringValue
         if let json = geo["notification"]["data"] as JSON? {
             notification.userInfo = ["geofence.notification.data": json.rawString(String.Encoding.utf8.rawValue, options: [])!]
         }
