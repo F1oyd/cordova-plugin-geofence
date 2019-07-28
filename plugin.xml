@@ -21,7 +21,6 @@
     </js-module>
 
     <dependency id="cordova-plugin-add-swift-support" version="1.6.0" />
-    <dependency id="cordova-plugin-compat" version="^1.0.0" />
     <dependency id="es6-promise-plugin" version="^4.1.0" />
 
     <!-- android -->
@@ -29,7 +28,6 @@
         <source-file src="src/android/AbstractGoogleServiceCommand.java" target-dir="src/com/cowbell/cordova/geofence" />
         <source-file src="src/android/AddGeofenceCommand.java" target-dir="src/com/cowbell/cordova/geofence" />
         <source-file src="src/android/AssetUtil.java" target-dir="src/com/cowbell/cordova/geofence" />
-        <source-file src="src/android/BeepHelper.java" target-dir="src/com/cowbell/cordova/geofence" />
         <source-file src="src/android/BootReceiver.java" target-dir="src/com/cowbell/cordova/geofence" />
         <source-file src="src/android/GeoNotification.java" target-dir="src/com/cowbell/cordova/geofence" />
         <source-file src="src/android/GeoNotificationManager.java" target-dir="src/com/cowbell/cordova/geofence" />
@@ -46,9 +44,10 @@
         <source-file src="src/android/ReceiveTransitionsIntentService.java" target-dir="src/com/cowbell/cordova/geofence" />
         <source-file src="src/android/RemoveGeofenceCommand.java" target-dir="src/com/cowbell/cordova/geofence" />
         <source-file src="src/android/TransitionReceiver.java" target-dir="src/com/cowbell/cordova/geofence"/>
-
+        
         <framework src="com.google.android.gms:play-services-location:11.0.1" />
-        <lib-file src="src/android/libs/gson-2.3.jar" />
+        <lib-file src="src/android/libs/gson-2.5.jar" />
+        <lib-file src="src/android/libs/david-webb-1.3.0.jar" />
 
         <config-file target="config.xml" parent="/*">
             <feature name="GeofencePlugin">

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import CoreLocation
 import AudioToolbox
 import WebKit
 import UserNotifications
@@ -48,8 +49,8 @@ let defaults = UserDefaults.standard
             object: nil
         )
     }
-    
-    func initialize(_ command: CDVInvokedUrlCommand) {
+
+    @objc func initialize(_ command: CDVInvokedUrlCommand) {
         log("Plugin initialization")
         //let faker = GeofenceFaker(manager: geoNotificationManager)
         //faker.start()
@@ -77,8 +78,8 @@ let defaults = UserDefaults.standard
         
         commandDelegate!.send(result, callbackId: command.callbackId)
     }
-    
-    func deviceReady(_ command: CDVInvokedUrlCommand) {
+
+    @objc func deviceReady(_ command: CDVInvokedUrlCommand) {
         let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
         commandDelegate!.send(pluginResult, callbackId: command.callbackId)
     }
@@ -121,8 +122,8 @@ let defaults = UserDefaults.standard
             )
         )
     }
-    
-    func addOrUpdate(_ command: CDVInvokedUrlCommand) {
+
+    @objc func addOrUpdate(_ command: CDVInvokedUrlCommand) {
         DispatchQueue.global(qos: priority).async {
             // do some task
             for geo in command.arguments {
@@ -134,8 +135,8 @@ let defaults = UserDefaults.standard
             }
         }
     }
-    
-    func getWatched(_ command: CDVInvokedUrlCommand) {
+
+    @objc func getWatched(_ command: CDVInvokedUrlCommand) {
         DispatchQueue.global(qos: priority).async {
             let watched = self.geoNotificationManager.getWatchedGeoNotifications()!
             let watchedJsonString = watched.description
@@ -145,8 +146,8 @@ let defaults = UserDefaults.standard
             }
         }
     }
-    
-    func remove(_ command: CDVInvokedUrlCommand) {
+
+    @objc func remove(_ command: CDVInvokedUrlCommand) {
         DispatchQueue.global(qos: priority).async {
             for id in command.arguments {
                 self.geoNotificationManager.removeGeoNotification(id as! String)
@@ -157,8 +158,8 @@ let defaults = UserDefaults.standard
             }
         }
     }
-    
-    func removeAll(_ command: CDVInvokedUrlCommand) {
+
+    @objc func removeAll(_ command: CDVInvokedUrlCommand) {
         DispatchQueue.global(qos: priority).async {
             self.geoNotificationManager.removeAllGeoNotifications()
             DispatchQueue.main.async {
@@ -167,8 +168,8 @@ let defaults = UserDefaults.standard
             }
         }
     }
-    
-    func didReceiveTransition (_ notification: Notification) {
+
+    @objc func didReceiveTransition (_ notification: Notification) {
         log("didReceiveTransition")
         if let geoNotificationString = notification.object as? String {
             
@@ -177,8 +178,8 @@ let defaults = UserDefaults.standard
             evaluateJs(js)
         }
     }
-    
-    func didReceiveLocalNotification (_ notification: Notification) {
+
+    @objc func didReceiveLocalNotification (_ notification: Notification) {
         log("didReceiveLocalNotification")
         if UIApplication.shared.applicationState != UIApplicationState.active {
             var data = "undefined"
@@ -634,4 +635,3 @@ class GeoNotificationStore {
         }
     }
 }
-

@@ -22,8 +22,9 @@
 // THE SOFTWARE.
 
 import Foundation
+import SQLite3
 import UIKit
-
+import CoreLocation
 
 // MARK: - SwiftData
 public struct SwiftData {
